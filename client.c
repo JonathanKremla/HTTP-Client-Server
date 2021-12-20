@@ -4,23 +4,30 @@
 
 char *programName;
 
+typedef struct Info
+{
+    char* port;
+    char* file;
+    char* dir;
+    char* url;
+}Info;
+//x
+
 void usage(char *message)
 {
     fprintf(stdout, "Usage in %s", message);
     exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[])
-{
-    programName = argv[0];
+void argumentParsing(Info *inf, int argc, char *argv[]){
 
     int p_ind = 0;
     int o_ind = 0;
     int d_ind = 0;
 
-    char *p_arg = NULL;
-    char *o_arg = NULL;
-    char *d_arg = NULL;
+    char *port = NULL;
+    char *file = NULL;
+    char *dir = NULL;
 
     int c;
     // Synopsis: client [-p PORT] [ -o FILE | -d DIR ] URL
@@ -30,7 +37,7 @@ int main(int argc, char *argv[])
         {
         case 'p':
             p_ind++;
-            p_arg = optarg;
+            port = optarg;
             break;
         case 'o':
             if (d_ind > 0)
@@ -38,7 +45,7 @@ int main(int argc, char *argv[])
                 usage(programName);
             }
             o_ind++;
-            o_arg = optarg;
+            file = optarg;
             break;
         case 'd':
             if (o_ind > 0)
@@ -46,7 +53,7 @@ int main(int argc, char *argv[])
                 usage(programName);
             }
             d_ind++;
-            d_arg = optarg;
+            dir = optarg;
             break;
         default:
             usage(programName);
@@ -62,4 +69,30 @@ int main(int argc, char *argv[])
     {
         usage(programName);
     }
+
+    inf ->dir = dir;
+    inf ->file = file;
+    inf ->url = argv[optind];
+    if(port == NULL){
+        inf->port = "80";
+    }
+    free(dir);
+    free(file);
+    free(port);
+    
+
+}
+
+int main(int argc, char *argv[])
+{
+    programName = argv[0];
+    Info info;
+    // Synopsis: client [-p PORT] [ -o FILE | -d DIR ] URL
+    argumentParsing(&info,argc,argv);
+
+    //TODO: disect URL
+    //TODO: create Socket
+    //TODO: write request to Socket
+    //TODO: read from Socket and print [to file/dir]
+
 }
