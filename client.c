@@ -2,6 +2,10 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netdb.h>
+
 
 char *programName;
 
@@ -100,13 +104,64 @@ void dissectURL(DisURL *dissectedUrl, char* url){
     strtok(url,"://");
     dissectedUrl->host = strtok(nptr,";/:@=&?");
     dissectedUrl->filepath = strtok(nptr,"\0");
-    printf("host:%s\tfilepath:%s\n",dissectedUrl->host,dissectedUrl->filepath);
 }
 
+int setupSocket(char* host, char* port){
 
+    struct addrinfo hints, *ai;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    getaddrinfo(host ,port , &hints, &ai);
+
+    int sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    connect(sockfd, ai->ai_addr, ai->ai_addrlen);
+    freeaddrinfo(ai);
+    return sockfd;
+}
+
+void readFromSocket(FILE *sockfile, char* host){
+    fprintf(sockfile, "GET / HTTP/1.1\r\nHost: %s\r\nConnection: close \r\n\r\n",host);
+    fflush(sockfile);
+    
+    char* header = NULL;
+    size_t len = 0;
+    getline(&header, &len, sockfile);
+
+    char* nptr = NULL;
+    char* tmp = NULL;
+
+    tmp = strtok(header," ");
+    if(strcmp(tmp,"HTTP/1.1") != 0){
+        fprintf(stderr,"Protocol error.");
+        exit(2);
+    }
+
+    tmp = strtok(nptr," ");
+    int c;
+    char* endptr;
+    if((c = strtol(tmp,&endptr,10)) == 0){
+        fprintf(stderr,"Protocol error");
+        exit(2);
+    }
+
+    if(strcmp(tmp,"200") != 0){
+        fprintf(stderr,"%s",tmp);
+        exit(3);
+    }
+
+
+    char buf[1024];
+    while ((fgets(buf, sizeof(buf), sockfile)) != NULL)
+        fputs(buf, stdout);
+    fflush(stdout);
+
+    free(header);
+}
 
 int main(int argc, char *argv[])
-{
+{   
     programName = argv[0];
     Info info;
     // Synopsis: client [-p PORT] [ -o FILE | -d DIR ] URL
@@ -114,8 +169,12 @@ int main(int argc, char *argv[])
     DisURL dissectedURL;
     dissectURL(&dissectedURL,info.url);
 
-    //TODO: create Socket
-    //TODO: write request to Socket
-    //TODO: read from Socket and print [to file/dir]
+    int sockfd = setupSocket(dissectedURL.host, info.port);
+    FILE *sockfile = fdopen(sockfd, "r+");
+    readFromSocket(sockfile,dissectedURL.host);
+        
+    fclose(sockfile);
+    //TODO: read from Socket and print [to file/dir]/
+    //Sockets sind super :)
 
 }
