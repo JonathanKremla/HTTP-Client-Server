@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 char *programName;
 
@@ -11,7 +12,13 @@ typedef struct Info
     char* dir;
     char* url;
 }Info;
-//x
+
+typedef struct DisURL
+{
+    char *host;
+    char *filepath;
+
+}DisURL;
 
 void usage(char *message)
 {
@@ -83,14 +90,30 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
 
 }
 
+void dissectURL(DisURL *dissectedUrl, char* url){
+    int s;
+    if((s = strncmp(url,"http://",7)) != 0){
+        usage(programName);
+    }
+    char* nptr = NULL;
+
+    strtok(url,"://");
+    dissectedUrl->host = strtok(nptr,";/:@=&?");
+    dissectedUrl->filepath = strtok(nptr,"\0");
+    printf("host:%s\tfilepath:%s\n",dissectedUrl->host,dissectedUrl->filepath);
+}
+
+
+
 int main(int argc, char *argv[])
 {
     programName = argv[0];
     Info info;
     // Synopsis: client [-p PORT] [ -o FILE | -d DIR ] URL
     argumentParsing(&info,argc,argv);
+    DisURL dissectedURL;
+    dissectURL(&dissectedURL,info.url);
 
-    //TODO: disect URL
     //TODO: create Socket
     //TODO: write request to Socket
     //TODO: read from Socket and print [to file/dir]
