@@ -21,6 +21,7 @@ typedef struct DisURL
 {
     char *host;
     char *filepath;
+    int requestPath;
 
 }DisURL;
 
@@ -87,11 +88,7 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
     if(port == NULL){
         inf->port = "80";
     }
-    free(dir);
-    free(file);
-    free(port);
     
-
 }
 
 void dissectURL(DisURL *dissectedUrl, char* url){
@@ -100,6 +97,11 @@ void dissectURL(DisURL *dissectedUrl, char* url){
         usage(programName);
     }
     char* nptr = NULL;
+    
+    dissectedUrl->requestPath = 0;
+    if(url[strlen(url) -1] == '/'){
+        dissectedUrl->requestPath = 1;
+    }
 
     strtok(url,"://");
     dissectedUrl->host = strtok(nptr,";/:@=&?");
@@ -121,8 +123,14 @@ int setupSocket(char* host, char* port){
     return sockfd;
 }
 
-void readFromSocket(FILE *sockfile, char* host){
-    fprintf(sockfile, "GET / HTTP/1.1\r\nHost: %s\r\nConnection: close \r\n\r\n",host);
+void readFromSocket(FILE *sockfile, DisURL *disURL, char* dest){
+    char *host = disURL->host;
+    char *file = disURL->filepath;
+
+    if(file == NULL){
+        file = "";
+    }
+    fprintf(sockfile, "GET /%s HTTP/1.1\r\nHost: %s\r\nConnection: close \r\n\r\n",file ,host);
     fflush(sockfile);
     
     char* header = NULL;
@@ -151,12 +159,25 @@ void readFromSocket(FILE *sockfile, char* host){
         exit(3);
     }
 
+    FILE *destfile;
+
+    if(dest != NULL){
+        if((destfile = fopen(dest,"w")) == NULL){
+            fprintf(stderr,"file open Error %s",dest);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    else{
+       destfile = stdout;
+    }
 
     char buf[1024];
     while ((fgets(buf, sizeof(buf), sockfile)) != NULL)
-        fputs(buf, stdout);
-    fflush(stdout);
-
+        fputs(buf, destfile);
+    
+    fflush(destfile);
+    fclose(destfile);
     free(header);
 }
 
@@ -171,10 +192,30 @@ int main(int argc, char *argv[])
 
     int sockfd = setupSocket(dissectedURL.host, info.port);
     FILE *sockfile = fdopen(sockfd, "r+");
-    readFromSocket(sockfile,dissectedURL.host);
-        
+    
+    char* file = NULL;
+
+    if(dissectedURL.requestPath == 1 && info.dir == NULL && info.file == NULL){
+        file = "index.html";
+    }
+
+    if(info.file != NULL){
+        file = info.file;
+    }
+
+    if(info.dir != NULL){
+        file = (char*) malloc(sizeof(info.dir) * 2 + 1);
+
+        strcpy(file,info.dir);
+        strcat(file,"/");
+        strcat(file,info.dir);
+    }
+
+    readFromSocket(sockfile,&dissectedURL,file);
+
     fclose(sockfile);
+    if(info.dir != NULL) free(file);
     //TODO: read from Socket and print [to file/dir]/
-    //Sockets sind super :)
+    
 
 }
