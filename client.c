@@ -1,3 +1,12 @@
+/**
+ * @file client.c
+ * @author Jonathan Kremla
+ * @brief client recieving data from server through a socket  
+ * @version 0.1
+ * @date 2021-12-25
+ * 
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -24,13 +33,23 @@ typedef struct DisURL
     int requestPath;
 
 }DisURL;
-
+/**
+ * @brief print usage message and exit with exit Code 1 (Failure) 
+ * 
+ * @param message message to be printedbefore exiting 
+ */
 void usage(char *message)
 {
     fprintf(stdout, "Usage in %s", message);
     exit(EXIT_FAILURE);
 }
-
+/**
+ * @brief function for handeling argument parsing 
+ * 
+ * @param inf Info struct for saving optional arguments 
+ * @param argc argument count 
+ * @param argv argument vector 
+ */
 void argumentParsing(Info *inf, int argc, char *argv[]){
 
     int p_ind = 0;
@@ -90,7 +109,12 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
     }
     
 }
-
+/**
+ * @brief function for splitting URL into host and filepath
+ * 
+ * @param dissectedUrl Struct of DisUrl for saving host and filepath 
+ * @param url String of given url 
+ */
 void dissectURL(DisURL *dissectedUrl, char* url){
     int s;
     if((s = strncmp(url,"http://",7)) != 0){
@@ -107,7 +131,13 @@ void dissectURL(DisURL *dissectedUrl, char* url){
     dissectedUrl->host = strtok(nptr,";/:@=&?");
     dissectedUrl->filepath = strtok(nptr,"\0");
 }
-
+/**
+ * @brief setup new Socket. 
+ * 
+ * @param host  specifies the host address
+ * @param port  specifies port (default = 80)
+ * @return int 
+ */
 int setupSocket(char* host, char* port){
 
     struct addrinfo hints, *ai;
@@ -118,11 +148,20 @@ int setupSocket(char* host, char* port){
     getaddrinfo(host ,port , &hints, &ai);
 
     int sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-    connect(sockfd, ai->ai_addr, ai->ai_addrlen);
+    if(connect(sockfd, ai->ai_addr, ai->ai_addrlen) != 0){
+        freeaddrinfo(ai);
+        return -1;
+    }
     freeaddrinfo(ai);
     return sockfd;
 }
-
+/**
+ * @brief reading from Socket and writing to the specified destination 
+ * 
+ * @param sockfile File for socket 
+ * @param disURL dissected Url containing host and filepath 
+ * @param dest given destination to write to (default is stdout) 
+ */
 void readFromSocket(FILE *sockfile, DisURL *disURL, char* dest){
     char *host = disURL->host;
     char *file = disURL->filepath;
@@ -180,7 +219,13 @@ void readFromSocket(FILE *sockfile, DisURL *disURL, char* dest){
     fclose(destfile);
     free(header);
 }
-
+/**
+ * @brief main function 
+ * 
+ * @param argc argument count 
+ * @param argv argument vector 
+ * @return int 0 on success 1 on failure 
+ */
 int main(int argc, char *argv[])
 {   
     programName = argv[0];
@@ -190,7 +235,10 @@ int main(int argc, char *argv[])
     DisURL dissectedURL;
     dissectURL(&dissectedURL,info.url);
 
-    int sockfd = setupSocket(dissectedURL.host, info.port);
+    if((int sockfd = setupSocket(dissectedURL.host, info.port) == -1){
+        fprintf(stderr,"failed at Socket setup";)
+        exiit(EXIT_FAILURE);
+    }
     FILE *sockfile = fdopen(sockfd, "r+");
     
     char* file = NULL;
