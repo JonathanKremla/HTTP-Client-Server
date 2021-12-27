@@ -48,7 +48,7 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
         }
     }
 
-    if(p_ind > 0 || i_ind > 0) 
+    if(p_ind > 1 || i_ind > 1) 
     {
         usage(programName);
     }
@@ -64,6 +64,30 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
         inf->port = "8080";
     }
     
+}
+
+int setupSocket (char *host){
+    struct addrinfo hints, *ai;
+    freeaddrinfo(ai);struct addrinfo hints, *ai;
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+
+    int res = getaddrinfo( NULL , host, &hints, &ai);
+    if (res != 0) {
+        return -1;
+    }
+    int sockfd = socket(ai->ai_family, ai->ai_socktype,
+    ai->ai_protocol);
+    if (sockfd < 0) {
+        return -1;
+    }
+    if ( bind(sockfd, ai->ai_addr, ai->ai_addrlen) < 0) {
+        return -1;
+    }
+    freeaddrinfo(ai);
+    return sockfd;
 }
 
 int main (int argc, char *argv[]){

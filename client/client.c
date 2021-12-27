@@ -145,9 +145,16 @@ int setupSocket(char* host, char* port){
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
 
-    getaddrinfo(host ,port , &hints, &ai);
+    int res = getaddrinfo(host ,port , &hints, &ai);
+    if(res != 0){
+        return -1;
+    }
 
     int sockfd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+
+    if(sockfd < 0){
+        return -1;
+    }
     if(connect(sockfd, ai->ai_addr, ai->ai_addrlen) != 0){
         freeaddrinfo(ai);
         return -1;
