@@ -66,15 +66,50 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
     
 }
 
-int setupSocket (char *host){
+int setupSocket (char *port, struct addrinfo *hints, struct addrinfo **ai){
+
+
+
+
+}
+
+void chat(int sockfd,int ai_addr, int ai_addrlen ){
+    char buff[80];
+    int pos, cnt;
+
+    FILE *sockfile;
+    if((sockfile = fdopen(sockfd,"w+")) == NULL){
+        fprintf(stderr, "failed at opening File");
+        exit(EXIT_FAILURE);
+    }
+
+    while(1){
+
+    int temp;
+    if((temp = listen(sockfd,128)) == -1){
+        fprintf(stderr, "connection failed");
+        exit(EXIT_FAILURE);
+    }
+    if((sockfd = accept(sockfd, ai_addr , ai_addrlen)) < 0){
+        fprintf(stderr, "failed at accept");
+        exit(EXIT_FAILURE);
+    }
+
+    }
+}
+
+int main (int argc, char *argv[]){
+    programName = argv[0];
+    Info info;
+    argumentParsing(&info, argc, argv);
+
     struct addrinfo hints, *ai;
-    freeaddrinfo(ai);struct addrinfo hints, *ai;
-    memset(&hints, 0, sizeof hints);
+    memset(&hints, -1, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
-    int res = getaddrinfo( NULL , host, &hints, &ai);
+    int res = getaddrinfo( NULL , info.port, &hints, &ai);
     if (res != 0) {
         return -1;
     }
@@ -87,12 +122,10 @@ int setupSocket (char *host){
         return -1;
     }
     freeaddrinfo(ai);
-    return sockfd;
-}
 
-int main (int argc, char *argv[]){
-    programName = argv[0];
-    Info info;
-    argumentParsing(&info, argc, argv);
+    if(sockfd < 0){
+        fprintf(stderr, "failed at Socket setup");
+        exit(EXIT_FAILURE);
+    }
 
 }
