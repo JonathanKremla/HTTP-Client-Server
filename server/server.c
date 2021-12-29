@@ -100,7 +100,7 @@ static int setupSocket(char *port){
         
     }
 
-    if ((res = bind(sockfd, ai->ai_addr, ai->ai_addrlen)) < 0)
+    if ((res = bind(sockfd, ai->ai_addr, ai->ai_addrlen)) < 0) //TODO: fix "Adress already in use Error, cause (?)"
     {
         fprintf(stderr, "at bind");
         return -1;
