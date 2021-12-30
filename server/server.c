@@ -58,16 +58,16 @@ void argumentParsing(Info *inf, int argc, char *argv[])
     {
         usage(programName);
     }
-
+    if(file == NULL){
+        file = "index.html";
+    }
     inf->file = file;
     inf->doc_root = argv[optind];
     if (port == NULL)
     {
-        inf->port = "8080";
+        port = "8080";
     }
-    else{
-        inf->port = port;
-    }
+    inf->port = port;
 }
 
 static int setupSocket(char *port){
@@ -99,7 +99,6 @@ static int setupSocket(char *port){
         return -1;
         
     }
-
     if ((res = bind(sockfd, ai->ai_addr, ai->ai_addrlen)) < 0) //TODO: fix "Adress already in use Error, cause (?)"
     {
         fprintf(stderr, "at bind");
@@ -117,18 +116,38 @@ static int setupSocket(char *port){
 
 void chat(int sockfd){
 
-
+    fprintf(stderr, "Before Accept"); //TODO remove line
     if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
     {
         fprintf(stderr, "failed at accept");
         exit(EXIT_FAILURE);
     }
+    fprintf(stderr, "Connection accepted"); //TODO remove line
+
+
+
     FILE *sockfile;
     if ((sockfile = fdopen(sockfd, "w+")) == NULL)
     {
         fprintf(stderr, "failed at opening File");
         exit(EXIT_FAILURE);
     }
+
+    //read request header
+    char* request_header;
+    size_t len = 0;
+    if(getline(request_header,&len,sockfile) == -1){
+        fprintf(stderr, "failed at reading request Header");
+        fclose(sockfile);
+        exit(EXIT_FAILURE);
+    }
+    char* req_method = strtok(request_header, " ");
+    char* path = strtok(NULL, " ");
+    char* version = strtok(NULL, " ");
+    char* empty = strtok(NULL, "\r\n");
+
+    //TODO Continue here
+
     char buf[1024];
     while ((fgets(buf, sizeof(buf), sockfile)) != NULL)
         fputs(buf, stdout);
@@ -141,13 +160,12 @@ int main(int argc, char *argv[])
     argumentParsing(&info, argc, argv);
     fprintf(stderr, "PORT: %s",info.port);
     int sockfd = setupSocket(info.port);
+    printf("after Setup");
     if(sockfd < 0){
-        fprintf(stderr, "failed at socket setup, error:%s in %s", strerror(errno), programName);
+        fprintf(stderr, "failed at socket setup, error: %s in %s", strerror(errno), programName);
         exit(EXIT_FAILURE);
     }
 
-    for (;;)
-    {
-        chat(sockfd);
-    }
+    chat(sockfd);
+    close(sockfd);
 }
