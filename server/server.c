@@ -146,12 +146,38 @@ void chat(int sockfd){
     char* version = strtok(NULL, " ");
     char* empty = strtok(NULL, "\r\n");
 
-    //TODO Continue here
+    char f_path[strlen(doc_root) + strlen(path)];
+    strcpy(f_path,doc_root);
+    strcat(f_path, path);
 
-    char buf[1024];
+    int msgCode = 200;
+    //check request
+    if(req_method == NULL || path == NULL || version == NULL || empty != NULL){
+        msgCode = 400;
+    }
+    if(strcmp(version, "HTTP/1.1\r\n") != 0){
+        msgCode = 400;
+    }
+    if(strcmp(req_method, "GET") != 0){
+        msgCode = 501;
+    }
+    
+    FILE *content = fopen(f_path, "r");
+    if(content == NULL && msgCode == 200){
+        msgCode = 404;
+    }
+    if(msgCode != 200){
+        fprintf(sockfile,"HTTP/1.1 %d \r\nConnection: close\r\n\r\n", msgCode);
+        fflush(sockfile);
+    }
+    else{
+        //write header
+    }
+
     while ((fgets(buf, sizeof(buf), sockfile)) != NULL)
         fputs(buf, stdout);
 }
+
 
 int main(int argc, char *argv[])
 {
