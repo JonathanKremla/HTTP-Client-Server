@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <netdb.h>
 #include <errno.h>
+#include <time.h>
 
 char *programName;
 
@@ -114,7 +115,7 @@ static int setupSocket(char *port){
     return sockfd;
 }
 
-void chat(int sockfd){
+void chat(int sockfd, char* doc_root){
 
     fprintf(stderr, "Before Accept"); //TODO remove line
     if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
@@ -136,7 +137,7 @@ void chat(int sockfd){
     //read request header
     char* request_header;
     size_t len = 0;
-    if(getline(request_header,&len,sockfile) == -1){
+    if(getline(&request_header,&len,sockfile) == -1){
         fprintf(stderr, "failed at reading request Header");
         fclose(sockfile);
         exit(EXIT_FAILURE);
@@ -174,8 +175,15 @@ void chat(int sockfd){
         //write header
     }
 
-    while ((fgets(buf, sizeof(buf), sockfile)) != NULL)
-        fputs(buf, stdout);
+}
+
+char* getDate(){
+    char* date = malloc(100);
+    time_t t = time(NULL); 
+    struct tm *ti = gmtime(&t);
+    
+    strftime(date, 100, "%a, %d %b %y %T %Z", ti);
+    fprintf(stderr,"\n%s\n",date);
 }
 
 
@@ -187,11 +195,12 @@ int main(int argc, char *argv[])
     fprintf(stderr, "PORT: %s",info.port);
     int sockfd = setupSocket(info.port);
     printf("after Setup");
+    getDate();
     if(sockfd < 0){
         fprintf(stderr, "failed at socket setup, error: %s in %s", strerror(errno), programName);
         exit(EXIT_FAILURE);
     }
 
-    chat(sockfd);
+    chat(sockfd, info.doc_root);
     close(sockfd);
 }
