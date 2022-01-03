@@ -6,7 +6,7 @@
  * @date 2021-12-25
  * 
  */
-
+#include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -104,10 +104,10 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
     inf ->dir = dir;
     inf ->file = file;
     inf ->url = argv[optind];
+    inf -> port = port;
     if(port == NULL){
         inf->port = "80";
     }
-    
 }
 /**
  * @brief function for splitting URL into host and filepath
@@ -144,6 +144,7 @@ int setupSocket(char* host, char* port){
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
+
 
     int res = getaddrinfo(host ,port , &hints, &ai);
     if(res != 0){
@@ -185,9 +186,9 @@ void readFromSocket(FILE *sockfile, DisURL *disURL, char* dest){
 
     char* nptr = NULL;
     char* tmp = NULL;
-
+    fprintf(stderr, "header: %s\n",header);
     tmp = strtok(header," ");
-    if(strcmp(tmp,"HTTP/1.1") != 0){
+    if((strcmp(tmp,"HTTP/1.1")) != 0){
         fprintf(stderr,"Protocol error.");
         exit(2);
     }
@@ -244,7 +245,7 @@ int main(int argc, char *argv[])
     
     int sockfd;
     if((sockfd = setupSocket(dissectedURL.host, info.port)) == -1){
-        fprintf(stderr,"failed at Socket setup");
+        fprintf(stderr,"failed at Socket setup error: %s", strerror(errno));
         exit(EXIT_FAILURE);
     }
     FILE *sockfile = fdopen(sockfd, "r+");

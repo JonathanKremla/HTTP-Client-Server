@@ -71,6 +71,30 @@ void argumentParsing(Info *inf, int argc, char *argv[])
     inf->port = port;
 }
 
+
+char* getDate(){
+    char* date = malloc(100);
+    time_t t = time(NULL); 
+    struct tm *ti = localtime(&t);
+    
+    strftime(date, 100, "%a, %d %b %y %T %Z", ti);
+    return date;
+}
+
+int getFileSize(char* file){
+    FILE *f;
+    if((f = fopen(file, "r")) == NULL){
+        return -1;
+    }
+    if((fseek(f,-1L,SEEK_END)) == -1){
+        fclose(f);
+        return -1;
+    }
+    int size = ftell(f);
+    fclose(f);
+    return size;
+}
+
 static int setupSocket(char *port){
 
     struct addrinfo hints, *ai;
@@ -117,13 +141,13 @@ static int setupSocket(char *port){
 
 void chat(int sockfd, char* doc_root){
 
-    fprintf(stderr, "Before Accept"); //TODO remove line
+    fprintf(stderr, "Before Accept %s",programName); //TODO remove line
     if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
     {
         fprintf(stderr, "failed at accept");
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "Connection accepted"); //TODO remove line
+    fprintf(stderr, "Connection accepted %s",programName); //TODO remove line
 
 
 
@@ -142,6 +166,14 @@ void chat(int sockfd, char* doc_root){
         fclose(sockfile);
         exit(EXIT_FAILURE);
     }
+    char* npt = NULL;
+    size_t len_npt = 0;
+
+    do{
+        getline(&npt,&len_npt, sockfile);
+    }
+    while((strcmp(npt,"\r\n")) != 0);
+
     char* req_method = strtok(request_header, " ");
     char* path = strtok(NULL, " ");
     char* version = strtok(NULL, " ");
@@ -172,19 +204,18 @@ void chat(int sockfd, char* doc_root){
         fflush(sockfile);
     }
     else{
-        //write header
+        int length = getFileSize(f_path);
+        char* date = getDate();
+        char* status = "OK";
+
+        if(fprintf(sockfile, "HTTP/1.1 %d %s\r\nDate: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", msgCode, status, date, length) < 0){
+            fprintf(stderr, "[%s] Error fprintf failed\n", programName);
+        }
     }
 
 }
 
-char* getDate(){
-    char* date = malloc(100);
-    time_t t = time(NULL); 
-    struct tm *ti = gmtime(&t);
-    
-    strftime(date, 100, "%a, %d %b %y %T %Z", ti);
-    fprintf(stderr,"\n%s\n",date);
-}
+
 
 
 int main(int argc, char *argv[])
