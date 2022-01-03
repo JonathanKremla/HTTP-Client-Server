@@ -17,6 +17,14 @@ typedef struct Info
     char *doc_root;
 } Info;
 
+typedef struct Header
+{
+    char* req_method; 
+    char* path; 
+    char* version; 
+    char* empty; 
+} header;
+
 void usage(char *message)
 {
     fprintf(stdout, "Usage in %s", message);
@@ -139,26 +147,8 @@ static int setupSocket(char *port){
     return sockfd;
 }
 
-void chat(int sockfd, char* doc_root){
+static struct Header extractHeader(FILE *sockfile){
 
-    fprintf(stderr, "Before Accept %s",programName); //TODO remove line
-    if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
-    {
-        fprintf(stderr, "failed at accept");
-        exit(EXIT_FAILURE);
-    }
-    fprintf(stderr, "Connection accepted %s",programName); //TODO remove line
-
-
-
-    FILE *sockfile;
-    if ((sockfile = fdopen(sockfd, "w+")) == NULL)
-    {
-        fprintf(stderr, "failed at opening File");
-        exit(EXIT_FAILURE);
-    }
-
-    //read request header
     char* request_header;
     size_t len = 0;
     if(getline(&request_header,&len,sockfile) == -1){
@@ -166,6 +156,32 @@ void chat(int sockfd, char* doc_root){
         fclose(sockfile);
         exit(EXIT_FAILURE);
     }
+    struct Header head;
+    head.req_method = strtok(request_header, " ");
+    head.path = strtok(NULL, " ");
+    head.version = strtok(NULL, " ");
+    head.empty = strtok(NULL, "\r\n");
+    return head;
+}
+
+int parseHeader(header *head){
+
+    int msgCode = 200;
+    //check request
+    if(head->req_method == NULL || head->path == NULL || head->version == NULL || head->empty != NULL){
+        msgCode = 400;
+    }
+    if(strcmp(head->version, "HTTP/1.1\r\n") != 0){
+        msgCode = 400;
+    }
+    if(strcmp(head->req_method, "GET") != 0){
+        msgCode = 501;
+    }
+    return msgCode;
+}
+
+void skipBody(FILE *sockfile){
+
     char* npt = NULL;
     size_t len_npt = 0;
 
@@ -174,26 +190,45 @@ void chat(int sockfd, char* doc_root){
     }
     while((strcmp(npt,"\r\n")) != 0);
 
-    char* req_method = strtok(request_header, " ");
-    char* path = strtok(NULL, " ");
-    char* version = strtok(NULL, " ");
-    char* empty = strtok(NULL, "\r\n");
+}
 
-    char f_path[strlen(doc_root) + strlen(path)];
+void chat(int sockfd, char* doc_root){
+
+    fprintf(stderr, "Before Accept %s",programName); //TODO remove line
+    //accept connection
+    if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
+    {
+        fprintf(stderr, "failed at accept");
+        exit(EXIT_FAILURE);
+    }
+    fprintf(stderr, "Connection accepted %s",programName); //TODO remove line
+
+
+    //open socketfile
+    FILE *sockfile;
+    if ((sockfile = fdopen(sockfd, "w+")) == NULL)
+    {
+        fprintf(stderr, "failed at opening File");
+        exit(EXIT_FAILURE);
+    }
+
+    //read request header
+
+    struct Header request_header;
+    request_header = extractHeader(sockfile);
+
+    //parse header, correct if 200
+    int msgCode = 0;
+    msgCode = parseHeader(&request_header);
+
+    //skip rest of file
+    skipBody(sockfile);
+
+
+    char f_path[strlen(doc_root) + strlen(request_header.path)];
     strcpy(f_path,doc_root);
-    strcat(f_path, path);
+    strcat(f_path, request_header.path);
 
-    int msgCode = 200;
-    //check request
-    if(req_method == NULL || path == NULL || version == NULL || empty != NULL){
-        msgCode = 400;
-    }
-    if(strcmp(version, "HTTP/1.1\r\n") != 0){
-        msgCode = 400;
-    }
-    if(strcmp(req_method, "GET") != 0){
-        msgCode = 501;
-    }
     
     FILE *content = fopen(f_path, "r");
     if(content == NULL && msgCode == 200){
