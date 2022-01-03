@@ -192,6 +192,11 @@ void skipBody(FILE *sockfile){
 
 }
 
+void writeContent(FILE *sockfile,FILE *content ){
+
+}
+
+
 void chat(int sockfd, char* doc_root){
 
     fprintf(stderr, "Before Accept %s",programName); //TODO remove line
@@ -229,7 +234,7 @@ void chat(int sockfd, char* doc_root){
     strcpy(f_path,doc_root);
     strcat(f_path, request_header.path);
 
-    
+    fprintf(stderr, "\nFILEPATH %s \n",f_path); 
     FILE *content = fopen(f_path, "r");
     if(content == NULL && msgCode == 200){
         msgCode = 404;
@@ -244,9 +249,19 @@ void chat(int sockfd, char* doc_root){
         char* status = "OK";
 
         if(fprintf(sockfile, "HTTP/1.1 %d %s\r\nDate: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", msgCode, status, date, length) < 0){
-            fprintf(stderr, "[%s] Error fprintf failed\n", programName);
+            fprintf(stderr, "failed at print in %s", programName);
         }
     }
+
+    char* line = NULL;
+    size_t line_length = 0;
+    fflush(sockfile); 
+    while((getline(&line, &line_length, content)) != -1){
+        fprintf(sockfile,"%s",line);
+    }    
+
+    fclose(sockfile);
+    fclose(content);
 
 }
 
