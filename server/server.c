@@ -285,3 +285,6 @@ int main(int argc, char *argv[])
     chat(sockfd, info.doc_root);
     close(sockfd);
 }
+//TODO: add index.html
+//TODO: signal handling
+//TODO: accept more connections
