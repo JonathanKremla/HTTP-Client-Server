@@ -130,6 +130,11 @@ void dissectURL(DisURL *dissectedUrl, char* url){
     strtok(url,"://");
     dissectedUrl->host = strtok(nptr,";/:@=&?");
     dissectedUrl->filepath = strtok(nptr,"\0");
+    fprintf(stderr, "reqPath = %d",dissectedUrl->requestPath);
+    if(dissectedUrl->requestPath == 1){
+        dissectedUrl->filepath = (strrchr(dissectedUrl->filepath,'/'));
+        fprintf(stderr,"FILE:_:::::::%s",dissectedUrl->filepath);
+    }
 }
 /**
  * @brief setup new Socket. 
@@ -252,9 +257,6 @@ int main(int argc, char *argv[])
     
     char* file = NULL;
 
-    if(dissectedURL.requestPath == 1 && info.dir == NULL && info.file == NULL){
-        file = "index.html";
-    }
 
     if(info.file != NULL){
         file = info.file;
@@ -265,14 +267,18 @@ int main(int argc, char *argv[])
 
         strcpy(file,info.dir);
         strcat(file,"/");
-        strcat(file,info.dir);
+        if(dissectedURL.requestPath != 1){
+            strcat(file,info.dir);
+        }
+        else{
+            strcat(file, "index.html");
+        }
     }
 
     readFromSocket(sockfile,&dissectedURL,file);
 
     fclose(sockfile);
     if(info.dir != NULL) free(file);
-    //TODO: read from Socket and print [to file/dir]/
     
 
 }

@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdbool.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -133,7 +134,7 @@ static int setupSocket(char *port){
         return -1;
         
     }
-    if ((res = bind(sockfd, ai->ai_addr, ai->ai_addrlen)) < 0) //TODO: fix "Adress already in use Error, cause (?)"
+    if ((res = bind(sockfd, ai->ai_addr, ai->ai_addrlen)) < 0) 
     {
         fprintf(stderr, "at bind ");
         return -1;
@@ -208,8 +209,19 @@ static void handle_signal(int signal){
     quit = 1;
 }
 
+static bool isDir(char *s)
+{
+    int size = strlen(s);
+    
+    if(s[size - 1] == '/')
+        return true;
+    
+    return false;
+}
 
-void chat(int sockfd, char* doc_root){
+
+
+void chat(int sockfd, char* doc_root, char* stdFile){
 
     //accept connection
     if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
@@ -239,9 +251,13 @@ void chat(int sockfd, char* doc_root){
     skipBody(sockfile);
 
     //extract path of file to send
-    char f_path[strlen(doc_root) + strlen(request_header.path)];
+    char f_path[strlen(doc_root) + strlen(request_header.path) + strlen(stdFile) + 1];
     strcpy(f_path,doc_root);
     strcat(f_path, request_header.path);
+
+    if(isDir(request_header.path)){
+        strcat(f_path,stdFile);
+    }
 
     //write header
     FILE *content = fopen(f_path, "r");
@@ -293,9 +309,8 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
     while(quit == 0){
-        chat(sockfd, info.doc_root);
+        chat(sockfd, info.doc_root, info.file);
     }
     close(sockfd);
     exit(EXIT_SUCCESS);
 }
-//TODO: add index.html
