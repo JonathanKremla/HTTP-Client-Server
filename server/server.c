@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -7,8 +9,11 @@
 #include <netdb.h>
 #include <errno.h>
 #include <time.h>
+#include <signal.h>
 
 char *programName;
+
+volatile __sig_atomic_t quit = 0;
 
 typedef struct Info
 {
@@ -90,16 +95,12 @@ char* getDate(){
 }
 
 int getFileSize(char* file){
-    FILE *f;
-    if((f = fopen(file, "r")) == NULL){
+    struct stat sb;
+
+    if(stat(file,&sb) == -1){
         return -1;
     }
-    if((fseek(f,-1L,SEEK_END)) == -1){
-        fclose(f);
-        return -1;
-    }
-    int size = ftell(f);
-    fclose(f);
+    int size = sb.st_size;
     return size;
 }
 
@@ -123,7 +124,7 @@ static int setupSocket(char *port){
 
     if (sockfd < 0)
     {
-        fprintf(stderr, "at socket");
+        fprintf(stderr, "at socket ");
         return -1;
     }
     int optval = 1;
@@ -134,13 +135,13 @@ static int setupSocket(char *port){
     }
     if ((res = bind(sockfd, ai->ai_addr, ai->ai_addrlen)) < 0) //TODO: fix "Adress already in use Error, cause (?)"
     {
-        fprintf(stderr, "at bind");
+        fprintf(stderr, "at bind ");
         return -1;
     }
     int temp;
     if ((temp = listen(sockfd, 128)) == -1)
     {
-        fprintf(stderr, "at listen");
+        fprintf(stderr, "at listen ");
         return -1;
     }
     freeaddrinfo(ai);
@@ -152,7 +153,7 @@ static struct Header extractHeader(FILE *sockfile){
     char* request_header;
     size_t len = 0;
     if(getline(&request_header,&len,sockfile) == -1){
-        fprintf(stderr, "failed at reading request Header");
+        fprintf(stderr, "failed at reading request Header in %s",programName);
         fclose(sockfile);
         exit(EXIT_FAILURE);
     }
@@ -194,31 +195,39 @@ void skipBody(FILE *sockfile){
 
 void writeContent(FILE *sockfile,FILE *content ){
 
+    char* line = NULL;
+    size_t line_length = 0;
+    fflush(sockfile); 
+    while((getline(&line, &line_length, content)) != -1){
+        fprintf(sockfile,"%s",line);
+    }    
+}
+
+static void handle_signal(int signal){
+    fprintf(stderr, "interrupted by Signal in %s ",programName);
+    quit = 1;
 }
 
 
 void chat(int sockfd, char* doc_root){
 
-    fprintf(stderr, "Before Accept %s",programName); //TODO remove line
     //accept connection
     if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
     {
-        fprintf(stderr, "failed at accept");
+        fprintf(stderr, "\nfailed at accept error: %s in %s ",strerror(errno),programName);
         exit(EXIT_FAILURE);
     }
-    fprintf(stderr, "Connection accepted %s",programName); //TODO remove line
 
 
     //open socketfile
     FILE *sockfile;
     if ((sockfile = fdopen(sockfd, "w+")) == NULL)
     {
-        fprintf(stderr, "failed at opening File");
+        fprintf(stderr, "\nfailed at opening File error: %s in %s ",strerror(errno),programName);
         exit(EXIT_FAILURE);
     }
 
     //read request header
-
     struct Header request_header;
     request_header = extractHeader(sockfile);
 
@@ -229,12 +238,12 @@ void chat(int sockfd, char* doc_root){
     //skip rest of file
     skipBody(sockfile);
 
-
+    //extract path of file to send
     char f_path[strlen(doc_root) + strlen(request_header.path)];
     strcpy(f_path,doc_root);
     strcat(f_path, request_header.path);
 
-    fprintf(stderr, "\nFILEPATH %s \n",f_path); 
+    //write header
     FILE *content = fopen(f_path, "r");
     if(content == NULL && msgCode == 200){
         msgCode = 404;
@@ -244,21 +253,19 @@ void chat(int sockfd, char* doc_root){
         fflush(sockfile);
     }
     else{
-        int length = getFileSize(f_path);
+        int length;
+        if((length = getFileSize(f_path)) == -1){
+            fprintf(stderr, "file not found error: %s in %s ",strerror(errno), programName);
+        }
         char* date = getDate();
         char* status = "OK";
 
         if(fprintf(sockfile, "HTTP/1.1 %d %s\r\nDate: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n", msgCode, status, date, length) < 0){
             fprintf(stderr, "failed at print in %s", programName);
         }
+        //write content
+        writeContent(sockfile,content);
     }
-
-    char* line = NULL;
-    size_t line_length = 0;
-    fflush(sockfile); 
-    while((getline(&line, &line_length, content)) != -1){
-        fprintf(sockfile,"%s",line);
-    }    
 
     fclose(sockfile);
     fclose(content);
@@ -270,21 +277,25 @@ void chat(int sockfd, char* doc_root){
 
 int main(int argc, char *argv[])
 {
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    //signal handling
+    sa.sa_handler = handle_signal;
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+
     programName = argv[0];
     Info info;
     argumentParsing(&info, argc, argv);
-    fprintf(stderr, "PORT: %s",info.port);
     int sockfd = setupSocket(info.port);
-    printf("after Setup");
-    getDate();
     if(sockfd < 0){
-        fprintf(stderr, "failed at socket setup, error: %s in %s", strerror(errno), programName);
+        fprintf(stderr, "\nfailed at socket setup, error: %s in %s\n", strerror(errno), programName);
         exit(EXIT_FAILURE);
     }
-
-    chat(sockfd, info.doc_root);
+    while(quit == 0){
+        chat(sockfd, info.doc_root);
+    }
     close(sockfd);
+    exit(EXIT_SUCCESS);
 }
 //TODO: add index.html
-//TODO: signal handling
-//TODO: accept more connections
