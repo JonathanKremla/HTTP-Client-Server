@@ -271,7 +271,7 @@ int main(int argc, char *argv[])
     }
 
     if(info.optDir == 1){
-        file = (char*) malloc(sizeof(info.dir) + sizeof(dissectedURL.saveFile)+ 1);
+        file = (char*) malloc(strlen(info.dir) + strlen(dissectedURL.saveFile)+ 1);
 
         strcpy(file,info.dir);
         strcat(file,"/");
@@ -282,6 +282,8 @@ int main(int argc, char *argv[])
 
     fclose(sockfile);
     if(info.dir != NULL) free(file);
+    free(file);
+
     
 
 }

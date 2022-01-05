@@ -87,11 +87,12 @@ void argumentParsing(Info *inf, int argc, char *argv[])
 
 
 char* getDate(){
-    char* date = malloc(100);
+    int dateSize = 100;
+    char* date = malloc(dateSize);
     time_t t = time(NULL); 
     struct tm *ti = localtime(&t);
     
-    strftime(date, 100, "%a, %d %b %y %T %Z", ti);
+    strftime(date, dateSize, "%a, %d %b %y %T %Z", ti);
     return date;
 }
 
@@ -151,18 +152,23 @@ static int setupSocket(char *port){
 
 static struct Header extractHeader(FILE *sockfile){
 
-    char* request_header;
+    char* line;
     size_t len = 0;
-    if(getline(&request_header,&len,sockfile) == -1){
+    if(getline(&line,&len,sockfile) == -1){
         fprintf(stderr, "failed at reading request Header in %s",programName);
         fclose(sockfile);
         exit(EXIT_FAILURE);
     }
     struct Header head;
+    char* request_header = malloc(strlen(line) + 1);
+    request_header = strcpy(request_header,line);
+
     head.req_method = strtok(request_header, " ");
     head.path = strtok(NULL, " ");
     head.version = strtok(NULL, " ");
     head.empty = strtok(NULL, "\r\n");
+    free(line);
+    free(request_header);
     return head;
 }
 
@@ -191,6 +197,7 @@ void skipBody(FILE *sockfile){
         getline(&npt,&len_npt, sockfile);
     }
     while((strcmp(npt,"\r\n")) != 0);
+    free(npt);
 
 }
 
@@ -202,6 +209,7 @@ void writeContent(FILE *sockfile,FILE *content ){
     while((getline(&line, &line_length, content)) != -1){
         fprintf(sockfile,"%s",line);
     }    
+    free(line);
 }
 
 static void handle_signal(int signal){
@@ -240,7 +248,7 @@ void chat(int sockfd, char* doc_root, char* stdFile){
     }
 
     //read request header
-    struct Header request_header;
+    struct Header request_header = {NULL,NULL, NULL, NULL};
     request_header = extractHeader(sockfile);
 
     //parse header, correct if 200
@@ -281,8 +289,8 @@ void chat(int sockfd, char* doc_root, char* stdFile){
         }
         //write content
         writeContent(sockfile,content);
+        free(date);
     }
-
     fclose(sockfile);
     fclose(content);
 
@@ -301,7 +309,7 @@ int main(int argc, char *argv[])
     sigaction(SIGTERM, &sa, NULL);
 
     programName = argv[0];
-    Info info;
+    Info info = {NULL,NULL,NULL};
     argumentParsing(&info, argc, argv);
     int sockfd = setupSocket(info.port);
     if(sockfd < 0){
