@@ -234,6 +234,9 @@ void chat(int sockfd, char* doc_root, char* stdFile){
     //accept connection
     if ((sockfd = accept(sockfd, NULL, NULL)) < 0)
     {
+        if(errno == EINTR){
+            exit(EXIT_SUCCESS);
+        }
         fprintf(stderr, "\nfailed at accept error: %s in %s ",strerror(errno),programName);
         exit(EXIT_FAILURE);
     }
