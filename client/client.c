@@ -24,13 +24,15 @@ typedef struct Info
     char* file;
     char* dir;
     char* url;
+    int optDir; //if 1 option -d was given
 }Info;
 
 typedef struct DisURL
 {
     char *host;
     char *filepath;
-    int requestPath;
+    char *saveFile;
+    int requestPath; //if 1 Url ends with / thus, requesting a directory
 
 }DisURL;
 /**
@@ -55,6 +57,7 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
     int p_ind = 0;
     int o_ind = 0;
     int d_ind = 0;
+    inf->optDir = 0;
 
     char *port = NULL;
     char *file = NULL;
@@ -84,6 +87,7 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
                 usage(programName);
             }
             d_ind++;
+            inf->optDir = 1;
             dir = optarg;
             break;
         default:
@@ -115,7 +119,7 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
  * @param dissectedUrl Struct of DisUrl for saving host and filepath 
  * @param url String of given url 
  */
-void dissectURL(DisURL *dissectedUrl, char* url){
+void dissectURL(DisURL *dissectedUrl, char* url, int optDir){
     int s;
     if((s = strncmp(url,"http://",7)) != 0){
         usage(programName);
@@ -130,10 +134,15 @@ void dissectURL(DisURL *dissectedUrl, char* url){
     strtok(url,"://");
     dissectedUrl->host = strtok(nptr,";/:@=&?");
     dissectedUrl->filepath = strtok(nptr,"\0");
-    fprintf(stderr, "reqPath = %d",dissectedUrl->requestPath);
-    if(dissectedUrl->requestPath == 1){
-        dissectedUrl->filepath = (strrchr(dissectedUrl->filepath,'/'));
-        fprintf(stderr,"FILE:_:::::::%s",dissectedUrl->filepath);
+
+    if(dissectedUrl->requestPath == 0 && optDir == 1){
+        dissectedUrl->saveFile = (strrchr(dissectedUrl->filepath,'/'));
+        if(dissectedUrl->saveFile == NULL){
+            dissectedUrl->saveFile = dissectedUrl->filepath; //case: http://HOST/example 
+        }
+    }
+    if(dissectedUrl->requestPath == 1 && optDir == 1){
+        dissectedUrl->saveFile = "index.html";
     }
 }
 /**
@@ -191,7 +200,6 @@ void readFromSocket(FILE *sockfile, DisURL *disURL, char* dest){
 
     char* nptr = NULL;
     char* tmp = NULL;
-    fprintf(stderr, "header: %s\n",header);
     tmp = strtok(header," ");
     if((strcmp(tmp,"HTTP/1.1")) != 0){
         fprintf(stderr,"Protocol error.");
@@ -246,11 +254,11 @@ int main(int argc, char *argv[])
     // Synopsis: client [-p PORT] [ -o FILE | -d DIR ] URL
     argumentParsing(&info,argc,argv);
     DisURL dissectedURL;
-    dissectURL(&dissectedURL,info.url);
+    dissectURL(&dissectedURL,info.url, info.optDir);
     
     int sockfd;
     if((sockfd = setupSocket(dissectedURL.host, info.port)) == -1){
-        fprintf(stderr,"failed at Socket setup error: %s", strerror(errno));
+        fprintf(stderr,"failed at Socket setup error: %s in %s", strerror(errno), programName);
         exit(EXIT_FAILURE);
     }
     FILE *sockfile = fdopen(sockfd, "r+");
@@ -262,17 +270,12 @@ int main(int argc, char *argv[])
         file = info.file;
     }
 
-    if(info.dir != NULL){
-        file = (char*) malloc(sizeof(info.dir) * 2 + 1);
+    if(info.optDir == 1){
+        file = (char*) malloc(sizeof(info.dir) + sizeof(dissectedURL.saveFile)+ 1);
 
         strcpy(file,info.dir);
         strcat(file,"/");
-        if(dissectedURL.requestPath != 1){
-            strcat(file,info.dir);
-        }
-        else{
-            strcat(file, "index.html");
-        }
+        strcat(file, dissectedURL.saveFile);
     }
 
     readFromSocket(sockfile,&dissectedURL,file);
