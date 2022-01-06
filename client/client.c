@@ -2,7 +2,6 @@
  * @file client.c
  * @author Jonathan Kremla
  * @brief client recieving data from server through a socket  
- * @version 0.1
  * @date 2021-12-25
  * 
  */
@@ -38,11 +37,10 @@ typedef struct DisURL
 /**
  * @brief print usage message and exit with exit Code 1 (Failure) 
  * 
- * @param message message to be printedbefore exiting 
  */
-void usage(char *message)
+void usage()
 {
-    fprintf(stdout, "Usage in %s", message);
+    fprintf(stderr, "Usage in %s: client [-p PORT] [ -o FILE | -d DIR ] URL", programName);
     exit(EXIT_FAILURE);
 }
 /**
@@ -76,7 +74,7 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
         case 'o':
             if (d_ind > 0)
             {
-                usage(programName);
+                usage();
             }
             o_ind++;
             file = optarg;
@@ -84,25 +82,25 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
         case 'd':
             if (o_ind > 0)
             {
-                usage(programName);
+                usage();
             }
             d_ind++;
             inf->optDir = 1;
             dir = optarg;
             break;
         default:
-            usage(programName);
+            usage();
         }
     }
 
     if (p_ind > 1 || o_ind > 1 || d_ind > 1 || (o_ind > 0 && d_ind > 0))
     {
-        usage(programName);
+        usage();
     }
     
     if (((p_ind * 2) + (o_ind * 2) + (d_ind * 2)) != argc - 2)
     {
-        usage(programName);
+        usage();
     }
 
     inf ->dir = dir;
@@ -122,7 +120,7 @@ void argumentParsing(Info *inf, int argc, char *argv[]){
 void dissectURL(DisURL *dissectedUrl, char* url, int optDir){
     int s;
     if((s = strncmp(url,"http://",7)) != 0){
-        usage(programName);
+        usage();
     }
     char* nptr = NULL;
     

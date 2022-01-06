@@ -1,3 +1,9 @@
+/**
+ * @file server.c
+ * @author Jonathan Kremla 
+ * @brief Server sending Data to client through socket
+ * @date 2022-01-06
+ */
 #include <stdlib.h>
 #include <stdbool.h>
 #include <sys/stat.h>
@@ -15,14 +21,20 @@
 char *programName;
 
 volatile __sig_atomic_t quit = 0;
-
+/**
+ * @brief struct for saving information about connection
+ * 
+ */
 typedef struct Info
 {
     char *port;
     char *file;
     char *doc_root;
 } Info;
-
+/**
+ * @brief struct representing the header to send to a client
+ * 
+ */
 typedef struct Header
 {
     char* req_method; 
@@ -30,13 +42,21 @@ typedef struct Header
     char* version; 
     char* empty; 
 } header;
-
-void usage(char *message)
+/**
+ * @brief print usage message and exit with Exit Code 1 
+ */
+void usage()
 {
-    fprintf(stdout, "Usage in %s", message);
+    fprintf(stdout, "Usage in %s: server [-p PORT] [-i INDEX] DOC_ROOT", programName);
     exit(EXIT_FAILURE);
 }
-
+/**
+ * @brief function for handling argumentParsing
+ * 
+ * @param inf Info struct saving information for our connection 
+ * @param argc argument count 
+ * @param argv argument vector 
+ */
 void argumentParsing(Info *inf, int argc, char *argv[])
 {
 
@@ -60,18 +80,18 @@ void argumentParsing(Info *inf, int argc, char *argv[])
             file = optarg;
             break;
         default:
-            usage(programName);
+            usage();
         }
     }
 
     if (p_ind > 1 || i_ind > 1)
     {
-        usage(programName);
+        usage();
     }
 
     if ((i_ind * 2) + (p_ind * 2) != argc - 2)
     {
-        usage(programName);
+        usage();
     }
     if(file == NULL){
         file = "index.html";
@@ -85,7 +105,11 @@ void argumentParsing(Info *inf, int argc, char *argv[])
     inf->port = port;
 }
 
-
+/**
+ * @brief fetch current Date and Time example: "Sun, 11 Nov 18 22:55:00 GMT"  
+ * 
+ * @return char* representing current Date and Time 
+ */
 char* getDate(){
     int dateSize = 100;
     char* date = malloc(dateSize);
@@ -95,7 +119,12 @@ char* getDate(){
     strftime(date, dateSize, "%a, %d %b %y %T %Z", ti);
     return date;
 }
-
+/**
+ * @brief Get the File Size of file 
+ * 
+ * @param file file name 
+ * @return int file size 
+ */
 int getFileSize(char* file){
     struct stat sb;
 
@@ -105,7 +134,12 @@ int getFileSize(char* file){
     int size = sb.st_size;
     return size;
 }
-
+/**
+ * @brief setup Socket for Communicating with client
+ * 
+ * @param port port to connect on 
+ * @return int return -1 on failure fd of socket on success
+ */
 static int setupSocket(char *port){
 
     struct addrinfo hints, *ai;
@@ -149,7 +183,12 @@ static int setupSocket(char *port){
     freeaddrinfo(ai);
     return sockfd;
 }
-
+/**
+ * @brief extract the Header sent by client
+ * 
+ * @param sockfile socket file 
+ * @return struct Header struct to save Header into 
+ */
 static struct Header extractHeader(FILE *sockfile){
 
     char* line;
@@ -171,7 +210,12 @@ static struct Header extractHeader(FILE *sockfile){
     free(request_header);
     return head;
 }
-
+/**
+ * @brief parsing recieved Header  
+ * 
+ * @param head Header struct, with received Header information 
+ * @return int returns the correct message Code, which will be sent to client later on 
+ */
 int parseHeader(header *head){
 
     int msgCode = 200;
@@ -187,7 +231,11 @@ int parseHeader(header *head){
     }
     return msgCode;
 }
-
+/**
+ * @brief reads until end of file, used to skip through entire file after reading header.
+ * 
+ * @param sockfile socket file to be read 
+ */
 void skipBody(FILE *sockfile){
 
     char* npt = NULL;
@@ -200,7 +248,12 @@ void skipBody(FILE *sockfile){
     free(npt);
 
 }
-
+/**
+ * @brief write content into socket file
+ * 
+ * @param sockfile socket file to be written in
+ * @param content content to write 
+ */
 void writeContent(FILE *sockfile,FILE *content ){
 
     char* line = NULL;
@@ -211,12 +264,22 @@ void writeContent(FILE *sockfile,FILE *content ){
     }    
     free(line);
 }
-
+/**
+ * @brief signal handling function
+ * 
+ * @param signal which occured in process
+ */
 static void handle_signal(int signal){
     fprintf(stderr, "interrupted by Signal in %s ",programName);
     quit = 1;
 }
-
+/**
+ * @brief check if char *s ends with "\", thus being a directory
+ * 
+ * @param s string to be checked 
+ * @return true if s ends with "\" 
+ * @return false if s does not end with "\" 
+ */
 static bool isDir(char *s)
 {
     int size = strlen(s);
@@ -228,7 +291,14 @@ static bool isDir(char *s)
 }
 
 
-
+/**
+ * @brief this function represents the whole communication process between server and client,
+ * running in a loop until interrupted.
+ * 
+ * @param sockfd socket file, communication file between server and client 
+ * @param doc_root the root file of this server 
+ * @param stdFile the standart file, if not specified otherwise "index.html" 
+ */
 void chat(int sockfd, char* doc_root, char* stdFile){
 
     //accept connection
@@ -301,7 +371,13 @@ void chat(int sockfd, char* doc_root, char* stdFile){
 
 
 
-
+/**
+ * @brief main function structuring program
+ * 
+ * @param argc argument count 
+ * @param argv argument vector 
+ * @return int returns 0 on Success, 1 on Failure 
+ */
 int main(int argc, char *argv[])
 {
     struct sigaction sa;
